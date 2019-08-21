@@ -4,7 +4,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
 import org.scalatest.FreeSpec
-import zio.{DefaultRuntime, UIO, ZIO}
+import zio.{DefaultRuntime, UIO}
 
 class MessageChannelTest extends FreeSpec {
 
@@ -23,6 +23,8 @@ class MessageChannelTest extends FreeSpec {
           UIO {
             (1 to 3).foreach { message =>
               putStr(s"put $message")
+              // use of latch is only to avoid tests being flaky
+              // don't use them in your own code
               latch.set(new CountDownLatch(1))
               MessageChannel.send(cb)(message)
               // ensure receiver has completed:
@@ -76,7 +78,7 @@ class MessageChannelTest extends FreeSpec {
               putStr(s"finished $message")
           }
 
-        val program = MessageChannel.pointToPointPar(3)(sender)(receiver)
+        val program = MessageChannel.pointToPointPar(nFibers)(sender)(receiver)
         new DefaultRuntime {}.unsafeRunSync(program.runDrain)
         assert(
           output.get.reverse
