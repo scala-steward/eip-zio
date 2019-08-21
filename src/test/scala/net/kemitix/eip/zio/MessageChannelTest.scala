@@ -24,7 +24,7 @@ class MessageChannelTest extends FreeSpec {
             (1 to 3).foreach { message =>
               putStr(s"put $message")
               latch.set(new CountDownLatch(1))
-              cb(ZIO.succeed(message))
+              MessageChannel.send(cb)(message)
               // ensure receiver has completed:
               latch.get.await()
             }
@@ -65,9 +65,7 @@ class MessageChannelTest extends FreeSpec {
         def sender: MessageChannel.Sender[Int] =
           cb =>
             UIO {
-              (1 to nFibers).foreach { message =>
-                cb(ZIO.succeed(message))
-              }
+              (1 to nFibers).foreach(MessageChannel.send(cb))
               MessageChannel.endChannel(cb)
           }
 

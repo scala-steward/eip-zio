@@ -9,6 +9,8 @@ object MessageChannel {
   type Receiver[Message] = Message => UIO[Unit]
   def endChannel[Message]: Callback[Message] => Unit =
     cb => cb(ZIO.fail(None))
+  def send[Message](cb: Callback[Message])(message: Message): Unit =
+    cb(ZIO.succeed(message))
 
   /**
     * Use Messaging to make asynchronous calls or transfer documents/events.
