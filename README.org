@@ -3,7 +3,16 @@
 Experimental library providing [[https://www.enterpriseintegrationpatterns.com/][Enterprise Integration Patterns]]
 primitives using [[https://zio.dev/][ZIO]] for the Scala language.
 
+[[https://www.codacy.com/app/kemitix/eip-zio][file:https://img.shields.io/codacy/grade/01d9a760c0fb49e2be06c369198d4d5e.svg?style=for-the-badge]]
+[[https://search.maven.org/search?q=net.kemitix.eip-zio][file:https://img.shields.io/maven-central/v/net.kemitix/eip-zio_2.13.svg?style=for-the-badge]]
+
 * Supported Patterns
+
+** Messaging Systems
+
+- [[https://www.enterpriseintegrationpatterns.com/patterns/messaging/Message.html][Message]]
+
+** MessageChannels
 
 - [[https://www.enterpriseintegrationpatterns.com/patterns/messaging/PointToPointChannel.html][Point-to-Point Channel]]
 
