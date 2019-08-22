@@ -54,7 +54,7 @@ object MessageChannel {
   }
 
   /**
-    * See [[MessageChannel.pointToPointR()]]
+    * See [[MessageChannel.pointToPointR]]
     *
     * Executes 'n' receivers running in parallel.
     *
