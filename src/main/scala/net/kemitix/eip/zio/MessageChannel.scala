@@ -1,6 +1,6 @@
 package net.kemitix.eip.zio
 
-import zio.{IO, RIO, UIO, ZIO, stream}
+import zio.{IO, UIO, ZIO}
 
 object MessageChannel {
   type Callback[Message]     = IO[Option[Unit], Message] => Unit

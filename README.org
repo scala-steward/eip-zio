@@ -1,0 +1,9 @@
+* eip-zio
+
+Experimental library providing [[https://www.enterpriseintegrationpatterns.com/][Enterprise Integration Patterns]]
+primitives using [[https://zio.dev/][ZIO]] for the Scala language.
+
+* Supported Patterns
+
+- [[https://www.enterpriseintegrationpatterns.com/patterns/messaging/PointToPointChannel.html][Point-to-Point Channel]]
+

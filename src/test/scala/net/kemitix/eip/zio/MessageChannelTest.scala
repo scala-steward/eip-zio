@@ -23,7 +23,7 @@ class MessageChannelTest extends FreeSpec {
         cb =>
           UIO {
             (1 to 3).foreach { message =>
-              putStr(s"put $message")
+              putStr("put " + message.toString)
               // use of latch is only to avoid tests being flaky
               // don't use them in your own code
               latch.set(new CountDownLatch(1))
@@ -37,7 +37,7 @@ class MessageChannelTest extends FreeSpec {
       def receiver: MessageChannel.Receiver[Int] =
         message =>
           UIO {
-            putStr(s"got $message")
+            putStr("got " + message.toString)
             latch.get.countDown()
         }
 
@@ -72,11 +72,19 @@ class MessageChannelTest extends FreeSpec {
               MessageChannel.endChannel(cb)
           }
 
+        // latches are used to ensure receivers finish in deterministic order for this test
+        // don't use them in your own code
+        // latches for each fiber - to be released in reverse order
+        val latches = List.fill(nFibers)(new CountDownLatch(1))
+        // release the 'first' latch - receivers will each release the next
+        latches(nFibers - 1).countDown()
+
         def receiver: MessageChannel.Receiver[Int] =
           message =>
             UIO {
-              Thread.sleep((nFibers - message) * 10) // reverse the order of completion
-              putStr(s"finished $message")
+              latches(message - 1).await()
+              putStr("finished " + message.toString)
+              if (message > 0) latches(message - 2).countDown()
           }
 
         val program = MessageChannel.pointToPointPar(nFibers)(sender)(receiver)
@@ -100,7 +108,7 @@ class MessageChannelTest extends FreeSpec {
           cb =>
             UIO {
               (1 to 3).foreach { message =>
-                putStr(s"put $message")
+                putStr("put " + message.toString)
                 // use of latch is only to avoid tests being flaky
                 // don't use them in your own code
                 latch.set(new CountDownLatch(1))
@@ -114,7 +122,7 @@ class MessageChannelTest extends FreeSpec {
         def receiver: MessageChannel.ReceiverR[Console, Int] =
           message =>
             UIO {
-              putStr(s"got $message")
+              putStr("got " + message.toString)
               latch.get.countDown()
           }
 
@@ -151,11 +159,19 @@ class MessageChannelTest extends FreeSpec {
                 MessageChannel.endChannel(cb)
             }
 
+          // latches are used to ensure receivers finish in deterministic order for this test
+          // don't use them in your own code
+          // latches for each fiber - to be released in reverse order
+          val latches = List.fill(nFibers)(new CountDownLatch(1))
+          // release the 'first' latch - receivers will each release the next
+          latches(nFibers - 1).countDown()
+
           def receiver: MessageChannel.ReceiverR[Console, Int] =
             message =>
               UIO {
-                Thread.sleep((nFibers - message) * 10) // reverse the order of completion
-                putStr(s"finished $message")
+                latches(message - 1).await()
+                putStr("finished " + message.toString)
+                if (message > 0) latches(message - 2).countDown()
             }
 
           val program =
