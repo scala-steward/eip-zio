@@ -1,3 +1,13 @@
+name := "eip-zio"
+version := "DEV-SNAPSHOT"
+scalaVersion := "2.13.0"
+crossScalaVersions := Seq("2.12.8", "2.13.0")
+libraryDependencies ++= Seq(
+  "dev.zio"       %% "zio"         % "1.0.0-RC11-1",
+  "dev.zio"       %% "zio-streams" % "1.0.0-RC11-1",
+  "org.scalatest" %% "scalatest"   % "3.0.8" % Test
+)
+
 inThisBuild(
   List(
     organization := "net.kemitix",
@@ -30,16 +40,3 @@ inThisBuild(
         ).contains(wart))
   ))
 
-name := "eip-zio"
-
-version := "0.1.1"
-
-scalaVersion := "2.13.0"
-
-crossScalaVersions := Seq("2.12.8", "2.13.0")
-
-libraryDependencies ++= Seq(
-  "dev.zio"       %% "zio"         % "1.0.0-RC11-1",
-  "dev.zio"       %% "zio-streams" % "1.0.0-RC11-1",
-  "org.scalatest" %% "scalatest"   % "3.0.8" % Test
-)
