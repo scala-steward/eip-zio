@@ -24,6 +24,20 @@ object MessageChannel {
   type Sender[R, Body]   = USender[R, Body]
   type Receiver[R, Body] = UReceiver[R, Body]
 
+  object Syntax {
+
+    implicit class ExtendUSender[R, Body](sender: USender[R, Body]) {
+      def =>>(that: MessageChannel.UReceiver[R, Body]): UChannelHandle[R] =
+        MessageChannel.pointToPoint(sender)(that)
+    }
+
+    implicit class ExtendESender[R, E, Body](sender: ESender[R, E, Body]) {
+      def =>>(that: MessageChannel.Receiver[R, Body]): EChannelHandle[R, E] =
+        MessageChannel.pointToPoint(sender)(that)
+    }
+
+  }
+
   // Normal shutdown of a channel
   def endChannel[Body](channel: Channel[Any, Body]): UIO[Unit] =
     UIO(channel(ZIO.fail(None)))

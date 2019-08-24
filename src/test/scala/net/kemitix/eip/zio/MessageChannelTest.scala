@@ -9,7 +9,7 @@ import org.scalatest.Matchers._
 import zio.Exit.Failure
 import zio.clock.Clock
 import zio.console._
-import zio.{DefaultRuntime, Exit, FiberFailure, UIO, ZIO}
+import zio.{DefaultRuntime, UIO, ZIO}
 
 class MessageChannelTest extends FreeSpec {
 
@@ -82,14 +82,9 @@ class MessageChannelTest extends FreeSpec {
         def sender: MessageChannel.USender[Clock with Console, Int] =
           channel =>
             for {
-              _ <- ZIO.foreach[Clock, Nothing, Int, Unit](1 to nFibers) {
-                counter =>
-                  for {
-                    m <- Message.create(counter)
-                    _ <- MessageChannel.send(channel)(m)
-                  } yield ()
-              }
-              _ <- MessageChannel.endChannel(channel)
+              messages <- ZIO.foreach(1 to nFibers)(Message.create)
+              _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
+              _        <- MessageChannel.endChannel(channel)
             } yield ()
 
         // latches are used to ensure receivers finish in deterministic order for this test
@@ -239,6 +234,50 @@ class MessageChannelTest extends FreeSpec {
       result match {
         case Failure(cause) => assertResult(List(error))(cause.failures)
         case _              => fail()
+      }
+    }
+    "infix syntax" - {
+      val output = new AtomicReference[List[String]](List.empty[String])
+
+      def putStr(s: String): ZIO[Console, Nothing, Unit] =
+        for {
+          _ <- putStrLn(s)
+          _ <- UIO(output.updateAndGet(l => s :: l))
+        } yield ()
+
+      def receiver: MessageChannel.UReceiver[Console, Int] =
+        message => putStr("received: " + message.body.toString)
+
+      "usender =>>" in {
+        def sender: MessageChannel.USender[Clock with Console, Int] =
+          channel =>
+            for {
+              messages <- ZIO.foreach(1 to 3)(Message.create)
+              _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
+              _        <- MessageChannel.endChannel(channel)
+            } yield ()
+        import MessageChannel.Syntax._
+        val channel = sender =>> receiver
+        val program = channel.runDrain
+        new DefaultRuntime {}.unsafeRunSync(program)
+        val expected = List("received: 1", "received: 2", "received: 3")
+        output.get should contain allElementsOf (expected)
+      }
+      "esender =>>" in {
+        def esender
+          : MessageChannel.ESender[Clock with Console, Throwable, Int] =
+          channel =>
+            for {
+              messages <- ZIO.foreach(1 to 3)(Message.create)
+              _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
+              _        <- MessageChannel.endChannel(channel)
+            } yield ()
+        import MessageChannel.Syntax._
+        val echannel = esender =>> receiver
+        val eprogram = echannel.runDrain
+        new DefaultRuntime {}.unsafeRunSync(eprogram)
+        val expected = List("received: 1", "received: 2", "received: 3")
+        output.get should contain allElementsOf (expected)
       }
     }
   }
