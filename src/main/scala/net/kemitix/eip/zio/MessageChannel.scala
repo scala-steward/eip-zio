@@ -26,14 +26,17 @@ object MessageChannel {
 
   object Syntax {
 
-    implicit class ExtendUSender[R, Body](sender: USender[R, Body]) {
-      def =>>(that: MessageChannel.UReceiver[R, Body]): UChannelHandle[R] =
-        MessageChannel.pointToPoint(sender)(that)
+    implicit class ExtendUSender[RSend, Body](sender: USender[RSend, Body]) {
+      def =>>[RReceive](receiver: MessageChannel.UReceiver[RReceive, Body])
+        : EChannelHandle[RSend with RReceive, Nothing] =
+        MessageChannel.pointToPoint(sender)(receiver)
     }
 
-    implicit class ExtendESender[R, E, Body](sender: ESender[R, E, Body]) {
-      def =>>(that: MessageChannel.Receiver[R, Body]): EChannelHandle[R, E] =
-        MessageChannel.pointToPoint(sender)(that)
+    implicit class ExtendESender[RSend, E, Body](
+        sender: ESender[RSend, E, Body]) {
+      def =>>[RReceive](receiver: MessageChannel.Receiver[RReceive, Body])
+        : EChannelHandle[RSend with RReceive, E] =
+        MessageChannel.pointToPoint(sender)(receiver)
     }
 
   }
@@ -76,9 +79,9 @@ object MessageChannel {
     * @return a Channel
     */
   def pointToPoint[R, RSend >: R, RReceive >: R, E, ESend <: E, Body](
-      sender: ESender[R, E, Body])(
-      receiver: UReceiver[R, Body]
-  ): EChannelHandle[R, E] = {
+      sender: ESender[RSend, E, Body])(
+      receiver: UReceiver[RReceive, Body]
+  ): EChannelHandle[RSend with RReceive, E] = {
     pointToPointPar(1)(sender)(receiver)
   }
 

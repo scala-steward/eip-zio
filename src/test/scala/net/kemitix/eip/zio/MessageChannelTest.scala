@@ -237,6 +237,9 @@ class MessageChannelTest extends FreeSpec {
       }
     }
     "infix syntax" - {
+
+      import MessageChannel.Syntax._
+
       val output = new AtomicReference[List[String]](List.empty[String])
 
       def putStr(s: String): ZIO[Console, Nothing, Unit] =
@@ -256,7 +259,6 @@ class MessageChannelTest extends FreeSpec {
               _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
               _        <- MessageChannel.endChannel(channel)
             } yield ()
-        import MessageChannel.Syntax._
         val channel = sender =>> receiver
         val program = channel.runDrain
         new DefaultRuntime {}.unsafeRunSync(program)
@@ -272,10 +274,24 @@ class MessageChannelTest extends FreeSpec {
               _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
               _        <- MessageChannel.endChannel(channel)
             } yield ()
-        import MessageChannel.Syntax._
-        val echannel = esender =>> receiver
-        val eprogram = echannel.runDrain
+        val echannel
+          : EChannelHandle[Clock with Console, Throwable] = esender =>> receiver
+        val eprogram                                      = echannel.runDrain
         new DefaultRuntime {}.unsafeRunSync(eprogram)
+        val expected = List("received: 1", "received: 2", "received: 3")
+        output.get should contain allElementsOf (expected)
+      }
+      "usender =>> with different Rs" in {
+        def sender: MessageChannel.USender[Clock, Int] =
+          channel =>
+            for {
+              messages <- ZIO.foreach(1 to 3)(Message.create)
+              _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
+              _        <- MessageChannel.endChannel(channel)
+            } yield ()
+        val channel = sender =>> receiver
+        val program = channel.runDrain
+        new DefaultRuntime {}.unsafeRunSync(program)
         val expected = List("received: 1", "received: 2", "received: 3")
         output.get should contain allElementsOf (expected)
       }
