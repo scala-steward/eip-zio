@@ -6,15 +6,36 @@ import zio.{UIO, ZIO}
   * A channel connecting a Sender and Receiver of Messages of type Body.
   */
 object MessageChannel {
-  type Channel[R, Body]  = ZIO[R, Option[Unit], Message[Body]] => Unit
-  type ChannelHandle[R]  = zio.stream.ZStream[R, Unit, Unit]
-  type Sender[R, Body]   = Channel[R, Body] => ZIO[R, Nothing, Unit]
-  type Receiver[R, Body] = Message[Body] => ZIO[R, Nothing, Unit]
-  def endChannel[Body](cb: Channel[Any, Body]): UIO[Unit] =
-    UIO(cb(ZIO.fail(None)))
-  def send[RSend, Body](cb: Channel[RSend, Body])(
+
+  // channels that can abort with errors from the Sender
+  type EChannel[R, E, Body] = ZIO[R, Option[E], Message[Body]] => Unit
+  type EChannelHandle[R, E] = zio.stream.ZStream[R, E, Unit]
+  type ESender[R, E, Body]  = EChannel[R, E, Body] => ZIO[R, E, Unit]
+
+  // channels that can't 'fail' (Uninterruptable)
+  type UChannel[R, Body]  = EChannel[R, Nothing, Body]
+  type UChannelHandle[R]  = EChannelHandle[R, Nothing]
+  type USender[R, Body]   = ESender[R, Nothing, Body]
+  type UReceiver[R, Body] = Message[Body] => ZIO[R, Nothing, Unit]
+
+  // Aliases for uninterruptable channels - the proposed default
+  type Channel[R, Body]  = UChannel[R, Body]
+  type ChannelHandle[R]  = UChannelHandle[R]
+  type Sender[R, Body]   = USender[R, Body]
+  type Receiver[R, Body] = UReceiver[R, Body]
+
+  // Normal shutdown of a channel
+  def endChannel[Body](channel: Channel[Any, Body]): UIO[Unit] =
+    UIO(channel(ZIO.fail(None)))
+
+  // Abnormal termination of a channel
+  def abortChannel[R, E, Body](channel: EChannel[R, E, Body])(
+      error: E): UIO[Unit] = UIO(channel(ZIO.fail(Some(error))))
+
+  // Dispatch a message into the channel from the Sender
+  def send[RSend, Body](channel: Channel[RSend, Body])(
       message: Message[Body]): UIO[Unit] =
-    UIO(cb(ZIO.succeed(message)))
+    UIO(channel(ZIO.succeed(message)))
 
   /**
     * Use Messaging to make asynchronous calls or transfer documents/events.
@@ -37,12 +58,14 @@ object MessageChannel {
     * @tparam Body The type of the Message body
     * @tparam RSend The environment for the sender
     * @tparam RReceive The environment for the receiver
+    * @tparam ESend The expected error type that can be returned by the Sender
     * @return a Channel
     */
-  def pointToPoint[RSend, RReceive, Body](sender: Sender[RSend, Body])(
-      receiver: Receiver[RReceive, Body]
-  ): ChannelHandle[RSend with RReceive] = {
-    pointToPointPar[RSend, RReceive, Body](1)(sender)(receiver)
+  def pointToPoint[R, RSend >: R, RReceive >: R, E, ESend <: E, Body](
+      sender: ESender[R, E, Body])(
+      receiver: UReceiver[R, Body]
+  ): EChannelHandle[R, E] = {
+    pointToPointPar(1)(sender)(receiver)
   }
 
   /**
@@ -52,12 +75,12 @@ object MessageChannel {
     *
     * @param n the number of parallel receivers
     */
-  def pointToPointPar[RSend, RReceive, Body](n: Int)(
-      sender: Sender[RSend, Body])(
-      receiver: Receiver[RReceive, Body]
-  ): ChannelHandle[RSend with RReceive] =
+  def pointToPointPar[R, RSend >: R, RReceive >: R, E, ESend <: E, Body](
+      n: Int)(sender: ESender[RSend, ESend, Body])(
+      receiver: UReceiver[RReceive, Body]): EChannelHandle[R, E] =
     zio.stream.ZStream
-      .effectAsyncM((cb: Channel[RSend, Body]) => sender(cb).fork.unit)
+      .effectAsyncM((channel: EChannel[R, E, Body]) =>
+        sender(channel).fork.unit)
       .mapMPar(n)(receiver)
 
 }

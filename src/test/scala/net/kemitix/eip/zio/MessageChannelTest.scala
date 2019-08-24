@@ -3,12 +3,13 @@ package net.kemitix.eip.zio
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
-import net.kemitix.eip.zio.MessageChannel.ChannelHandle
+import net.kemitix.eip.zio.MessageChannel.EChannelHandle
 import org.scalatest.FreeSpec
 import org.scalatest.Matchers._
+import zio.Exit.Failure
 import zio.clock.Clock
 import zio.console._
-import zio.{DefaultRuntime, UIO, ZIO}
+import zio.{DefaultRuntime, Exit, FiberFailure, UIO, ZIO}
 
 class MessageChannelTest extends FreeSpec {
 
@@ -23,7 +24,7 @@ class MessageChannelTest extends FreeSpec {
           _ <- UIO(output.updateAndGet(l => s :: l))
         } yield ()
 
-      def sender: MessageChannel.Sender[Clock with Console, Int] =
+      def sender: MessageChannel.USender[Clock with Console, Int] =
         channel =>
           // use of latch is only to avoid tests being flaky
           // ensure receiver has completed
@@ -42,14 +43,14 @@ class MessageChannelTest extends FreeSpec {
             _ <- MessageChannel.endChannel(channel)
           } yield ()
 
-      def receiver: MessageChannel.Receiver[Console, Int] =
+      def receiver: MessageChannel.UReceiver[Console, Int] =
         message =>
           for {
             _ <- putStr("got " + message.body.toString)
             _ <- UIO(latch.get.countDown())
           } yield ()
 
-      val program: ChannelHandle[Clock with Console] =
+      val program: MessageChannel.UChannelHandle[Clock with Console] =
         MessageChannel.pointToPoint(sender)(receiver)
 
       new DefaultRuntime {}.unsafeRunSync(program.runDrain)
@@ -78,7 +79,7 @@ class MessageChannelTest extends FreeSpec {
 
         val nFibers = 3
 
-        def sender: MessageChannel.Sender[Clock, Int] =
+        def sender: MessageChannel.USender[Clock with Console, Int] =
           channel =>
             for {
               _ <- ZIO.foreach[Clock, Nothing, Int, Unit](1 to nFibers) {
@@ -98,7 +99,7 @@ class MessageChannelTest extends FreeSpec {
         // release the 'first' latch - receivers will each release the next
         latches(nFibers - 1).countDown()
 
-        def receiver: MessageChannel.Receiver[Console, Int] =
+        def receiver: MessageChannel.UReceiver[Console with Clock, Int] =
           message => {
             for {
               body <- UIO(message.body)
@@ -108,7 +109,7 @@ class MessageChannelTest extends FreeSpec {
             } yield ()
           }
 
-        val program: ChannelHandle[Clock with Console] =
+        val program: MessageChannel.UChannelHandle[Clock with Console] =
           MessageChannel.pointToPointPar(nFibers)(sender)(receiver)
 
         new DefaultRuntime {}.unsafeRunSync(program.runDrain)
@@ -127,7 +128,7 @@ class MessageChannelTest extends FreeSpec {
           _ <- UIO(output.updateAndGet(l => s :: l))
         } yield ()
 
-      def sender(id: String): MessageChannel.Sender[Clock with Console, Int] =
+      def sender(id: String): MessageChannel.USender[Clock with Console, Int] =
         channel =>
           for {
             _ <- ZIO.foreach(1 to 3) { counter =>
@@ -140,7 +141,7 @@ class MessageChannelTest extends FreeSpec {
             _ <- MessageChannel.endChannel(channel)
           } yield ()
 
-      def receiver(id: String): MessageChannel.Receiver[Console, Int] =
+      def receiver(id: String): MessageChannel.UReceiver[Console, Int] =
         message =>
           for {
             _ <- putStr(s"receiver $id received: " + message.body.toString)
@@ -153,7 +154,7 @@ class MessageChannelTest extends FreeSpec {
         val channel2 =
           MessageChannel.pointToPoint(sender("second"))(receiver("second"))
         //when
-        val program: ZIO[Clock with Console, Unit, Unit] =
+        val program: ZIO[Clock with Console, Throwable, Unit] =
           channel1.runDrain *> channel2.runDrain
         //then
         new DefaultRuntime {}.unsafeRunSync(program)
@@ -186,7 +187,7 @@ class MessageChannelTest extends FreeSpec {
         val channel3 =
           MessageChannel.pointToPoint(sender("third"))(receiver("third"))
         //when
-        val program: ZIO[Clock with Console, Unit, Unit] =
+        val program: ZIO[Clock with Console, Throwable, Unit] =
           (channel1.runDrain <&> channel2.runDrain) *> channel3.runDrain
         //then
         new DefaultRuntime {}.unsafeRunSync(program)
@@ -215,6 +216,29 @@ class MessageChannelTest extends FreeSpec {
         val (first, second) = output.get.reverse.splitAt(12)
         first should contain allElementsOf (expectedFirst)
         second should contain allElementsOf (expectedSecond)
+      }
+    }
+    "sender can abort with error" in {
+      //given
+      val error = "Expected error"
+      def sender: MessageChannel.ESender[Clock, String, Int] =
+        channel => MessageChannel.abortChannel(channel)(error)
+      def receiver: MessageChannel.UReceiver[Console, Int] =
+        _ => putStrLn("should have failed!")
+      val channel: EChannelHandle[Clock with Console, String] =
+        MessageChannel.pointToPoint[Clock with Console,
+                                    Clock,
+                                    Console,
+                                    String,
+                                    Nothing,
+                                    Int](sender)(receiver)
+      //when
+      val program = channel.runDrain
+      val result  = new DefaultRuntime {}.unsafeRunSync(program)
+      //then
+      result match {
+        case Failure(cause) => assertResult(List(error))(cause.failures)
+        case _              => fail()
       }
     }
   }
