@@ -87,6 +87,17 @@ object MessageChannel {
   ): EChannelHandle[RSend with RReceive, E] = {
     pointToPointPar(1)(sender)(receiver)
   }
+  def pointToForwarderToPoint[R,
+                              RSend >: R,
+                              RForward >: R,
+                              RReceive >: R,
+                              E,
+                              ESend <: E,
+                              BodyIn,
+                              BodyOut](sender: ESender[RSend, ESend, BodyIn])(
+      forwarder: Forwarder[RForward, BodyIn, BodyOut])(
+      receiver: UReceiver[RReceive, BodyOut]): EChannelHandle[R, E] =
+    pointToForwarderToPointPar(1, 1)(sender)(forwarder)(receiver)
 
   /**
     * See [[MessageChannel.pointToPoint]]
@@ -102,5 +113,22 @@ object MessageChannel {
       .effectAsyncM((channel: EChannel[R, E, Body]) =>
         sender(channel).fork.unit)
       .mapMPar(n)(receiver)
+
+  def pointToForwarderToPointPar[R,
+                                 RSend >: R,
+                                 RForward >: R,
+                                 RReceive >: R,
+                                 E,
+                                 ESend <: E,
+                                 BodyIn,
+                                 BodyOut](nf: Int, nr: Int)(
+      sender: ESender[RSend, ESend, BodyIn])(
+      forwarder: Forwarder[RForward, BodyIn, BodyOut])(
+      receiver: UReceiver[RReceive, BodyOut]): EChannelHandle[R, E] =
+    zio.stream.ZStream
+      .effectAsyncM((channel: EChannel[R, E, BodyIn]) =>
+        sender(channel).fork.unit)
+      .mapMPar(nf)(forwarder)
+      .mapMPar(nr)(receiver)
 
 }
