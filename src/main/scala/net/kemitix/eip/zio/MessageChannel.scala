@@ -50,7 +50,7 @@ object MessageChannel {
       error: E): UIO[Unit] = UIO(channel(ZIO.fail(Some(error))))
 
   // Dispatch a message into the channel from the Sender
-  def send[RSend, Body](channel: Channel[RSend, Body])(
+  def send[RSend, Body](channel: Channel[RSend, _ >: Body])(
       message: Message[Body]): UIO[Unit] =
     UIO(channel(ZIO.succeed(message)))
 

@@ -8,7 +8,7 @@ import zio.clock._
   *
   * The headers are a Map of String to List of String.
   */
-case class Message[Body] private (
+case class Message[+Body] private (
     headers: Map[String, List[String]],
     body: Body
 )
