@@ -24,6 +24,9 @@ object MessageChannel {
   type Sender[R, Body]   = USender[R, Body]
   type Receiver[R, Body] = UReceiver[R, Body]
 
+  type Forwarder[R, BodyIn, BodyOut] =
+    Message[BodyIn] => ZIO[R, Nothing, Message[BodyOut]]
+
   object Syntax {
 
     implicit class ExtendUSender[RSend, Body](sender: USender[RSend, Body]) {
