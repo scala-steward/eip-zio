@@ -3,7 +3,6 @@ package net.kemitix.eip.zio
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
-import net.kemitix.eip.zio.MessageChannel.EChannelHandle
 import org.scalatest.FreeSpec
 import org.scalatest.Matchers._
 import zio.Exit.Failure
@@ -220,7 +219,7 @@ class MessageChannelTest extends FreeSpec {
         channel => MessageChannel.abortChannel(channel)(error)
       def receiver: MessageChannel.UReceiver[Console, Int] =
         _ => putStrLn("should have failed!")
-      val channel: EChannelHandle[Clock with Console, String] =
+      val channel: MessageChannel.EChannelHandle[Clock with Console, String] =
         MessageChannel.pointToPoint[Clock with Console,
                                     Clock,
                                     Console,
@@ -274,9 +273,10 @@ class MessageChannelTest extends FreeSpec {
               _        <- ZIO.foreach(messages)(MessageChannel.send(channel))
               _        <- MessageChannel.endChannel(channel)
             } yield ()
-        val echannel
-          : EChannelHandle[Clock with Console, Throwable] = esender =>> receiver
-        val eprogram                                      = echannel.runDrain
+        val echannel: MessageChannel.EChannelHandle[
+          Clock with Console,
+          Throwable] = esender =>> receiver
+        val eprogram = echannel.runDrain
         new DefaultRuntime {}.unsafeRunSync(eprogram)
         val expected = List("received: 1", "received: 2", "received: 3")
         output.get should contain allElementsOf (expected)
@@ -295,6 +295,61 @@ class MessageChannelTest extends FreeSpec {
         val expected = List("received: 1", "received: 2", "received: 3")
         output.get should contain allElementsOf (expected)
       }
+    }
+  }
+  "Point to Forwarder to Point Message Channel" - {
+    "is async in forwarder and receiver" in {
+      val output = new AtomicReference[List[String]](List.empty[String])
+
+      def putStr(s: String): ZIO[Console, Nothing, Unit] =
+        for {
+          _ <- putStrLn(s)
+          _ <- UIO(output.updateAndGet(l => s :: l))
+        } yield ()
+
+      def sender: MessageChannel.USender[Console with Clock, Int] =
+        channel =>
+          for {
+            messages <- ZIO.foreach(1 to 3)(Message.create)
+            _ <- ZIO.foreach(messages) { message =>
+              for {
+                _ <- putStr("sending    " + message.body.toString)
+                _ <- MessageChannel.send(channel)(message)
+              } yield ()
+            }
+            _ <- MessageChannel.endChannel(channel)
+          } yield ()
+      def forwarder: MessageChannel.Forwarder[Clock with Console, Int, String] =
+        intMessage => {
+          for {
+            _          <- putStr("forwarding " + intMessage.body.toString)
+            strMessage <- Message.create(intMessage.body.toString)
+          } yield strMessage
+        }
+      def receiver: MessageChannel.Receiver[Console, String] =
+        message => {
+          for {
+            _ <- putStr("received   " + message.body.toString)
+          } yield ()
+        }
+      val channel: MessageChannel.ChannelHandle[Console with Clock] =
+        MessageChannel.pointToForwarderToPointPar(10, 10)(sender)(forwarder)(
+          receiver)
+
+      val program = channel.runDrain
+
+      new DefaultRuntime {}.unsafeRunSync(program)
+
+      val expected = List("sending    1",
+                          "sending    2",
+                          "sending    3",
+                          "forwarding 1",
+                          "forwarding 2",
+                          "forwarding 3",
+                          "received   1",
+                          "received   2",
+                          "received   3")
+      output.get should contain allElementsOf expected
     }
   }
 }
