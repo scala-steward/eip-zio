@@ -228,7 +228,9 @@ class MessageChannelTest extends FreeSpec {
                                     Int](sender)(receiver)
       //when
       val program = channel.runDrain
-      val result  = new DefaultRuntime {}.unsafeRunSync(program)
+      println(
+        "The message 'Fiber failed.' is expected - I'd rather it was silent though.")
+      val result = new DefaultRuntime {}.unsafeRunSync(program)
       //then
       result match {
         case Failure(cause) => assertResult(List(error))(cause.failures)
