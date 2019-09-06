@@ -1,5 +1,5 @@
 name := "eip-zio"
-version := "DEV-SNAPSHOT"
+version := "0.3.1"
 scalaVersion := "2.13.0"
 crossScalaVersions := Seq("2.12.8", "2.13.0")
 libraryDependencies ++= Seq(
