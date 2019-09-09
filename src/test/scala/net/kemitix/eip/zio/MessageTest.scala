@@ -13,6 +13,13 @@ class MessageTest extends FreeSpec {
     assertResult(Right("body"))(result.map(_.body))
   }
 
+  "create a message without a Clock" in {
+    val message: ZIO[Any, Nothing, Message[String]] = Message.withBody("body")
+    val result: Either[Throwable, Message[String]] =
+      new DefaultRuntime {}.unsafeRunSync(message).toEither
+    assertResult(Right("body"))(result.map(_.body))
+  }
+
   "message body is covariant" in {
     // compilation only test
     sealed trait MyBody

@@ -1,6 +1,6 @@
 package net.kemitix.eip.zio
 
-import zio.ZIO
+import zio.{UIO, ZIO}
 import zio.clock._
 
 /**
@@ -8,11 +8,14 @@ import zio.clock._
   *
   * The headers are a Map of String to List of String.
   */
-case class Message[+Body] private (
+case class Message[+Body](
     headers: Map[String, List[String]],
     body: Body
 )
 object Message {
+  def withBody[Body](body: Body): ZIO[Any, Nothing, Message[Body]] =
+    UIO(Message[Body](headers = Map.empty, body = body))
+
   def create[Body](body: Body): ZIO[Clock, Nothing, Message[Body]] =
     currentDateTime.map { nt =>
       Message[Body](headers = Map(Headers.Created -> List(nt.toString)),
