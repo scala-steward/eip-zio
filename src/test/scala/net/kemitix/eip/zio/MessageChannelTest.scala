@@ -3,14 +3,15 @@ package net.kemitix.eip.zio
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
-import org.scalatest.FreeSpec
-import org.scalatest.Matchers._
+import matchers.should.Matchers._
 import zio.Exit.Failure
 import zio.clock.Clock
 import zio.console._
 import zio.{DefaultRuntime, UIO, ZIO}
+import org.scalatest.matchers
+import org.scalatest.freespec.AnyFreeSpec
 
-class MessageChannelTest extends FreeSpec {
+class MessageChannelTest extends AnyFreeSpec {
 
   "Point-to-Point Message Channel" - {
     "receive messages asynchronously" in {
