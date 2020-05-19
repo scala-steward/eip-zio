@@ -3,8 +3,8 @@ version := "DEV-SNAPSHOT"
 scalaVersion := "2.13.0"
 crossScalaVersions := Seq("2.12.8", "2.13.0")
 libraryDependencies ++= Seq(
-  "dev.zio"       %% "zio"         % "1.0.0-RC17",
-  "dev.zio"       %% "zio-streams" % "1.0.0-RC17",
+  "dev.zio"       %% "zio"         % "1.0.0-RC19-1",
+  "dev.zio"       %% "zio-streams" % "1.0.0-RC19-1",
   "org.scalatest" %% "scalatest"   % "3.0.8" % Test
 )
 
