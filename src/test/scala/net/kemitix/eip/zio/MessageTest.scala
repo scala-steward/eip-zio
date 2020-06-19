@@ -1,10 +1,10 @@
 package net.kemitix.eip.zio
 
-import org.scalatest.FreeSpec
 import zio.{DefaultRuntime, ZIO}
 import zio.clock.Clock
+import org.scalatest.freespec.AnyFreeSpec
 
-class MessageTest extends FreeSpec {
+class MessageTest extends AnyFreeSpec {
 
   "create a message" in {
     val message: ZIO[Clock, Nothing, Message[String]] = Message.create("body")
